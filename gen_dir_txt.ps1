@@ -1,34 +1,3 @@
-# SAMPLE gen_dir_txt_config.json (save in .vscode folder in your project)
-# {
-#     "excludeFolders": [".vscode"],
-#     "includeExtensions": ["*.js", "*.json", "*.css", "*.py", "*.yml", "*.conf", "*.ps1", "*.sh"]
-# }
-  
-
-# SAMPLE TASK.JSON (save in .vscode folder in your project)
-# {
-#     "version": "2.0.0",
-#     "tasks": [
-#         {
-#             "label": "Generate Directory Structure",
-#             "type": "shell",
-#             "command": "powershell",
-#             "args": [
-#                 "-ExecutionPolicy",
-#                 "Bypass",
-#                 "-File",
-#                 "C:/Users/alexb/Documents/GitRepos/dev_functions/gen_dir_txt.ps1",
-#                 "-ConfigPath",
-#                 "${workspaceFolder}/.vscode/gen_dir_txt_config.json",
-#                 "-BaseDir",
-#                 "${workspaceFolder}"
-#             ],
-#             "problemMatcher": []
-#         }
-#     ]
-# }
-
-
 param (
     [string]$BaseDir = "$PSScriptRoot",
     [string]$ConfigPath = "$BaseDir\.vscode\gen_dir_txt_config.json"
@@ -54,34 +23,58 @@ $includeExtensions = $config.includeExtensions
 # Set the output text file path in the specified base directory
 $outputTextFile = Join-Path -Path (Join-Path -Path $BaseDir -ChildPath ".vscode") -ChildPath "filenames.txt"
 
-# Initialize a list to store the files
-$fileList = @()
+# Function to recursively list files in the specified order
+function Get-FilesAndFolders {
+    param (
+        [string]$CurrentDir,
+        [array]$IgnoreFolders,
+        [array]$IncludeExtensions
+    )
 
-# Get files for each extension and add to the list
-foreach ($extension in $includeExtensions) {
-    $files = Get-ChildItem -Path $BaseDir -Recurse -File -Filter $extension | Where-Object {
+    $result = @()
+
+    # Get files at the current directory level matching the extensions
+    $files = Get-ChildItem -Path $CurrentDir -File | Where-Object {
+        $include = $false
+        foreach ($ext in $IncludeExtensions) {
+            if ($_.Name -like $ext) {
+                $include = $true
+                break
+            }
+        }
+        $include
+    } | Sort-Object -Property Name
+
+    foreach ($file in $files) {
+        $relativePath = $file.FullName -replace [regex]::Escape($BaseDir), ""
+        $result += $relativePath.TrimStart("\") # Ensure relative paths don't have leading slashes
+    }
+
+    # Get child directories, excluding ignored folders
+    $directories = Get-ChildItem -Path $CurrentDir -Directory | Where-Object {
         $ignore = $false
-        foreach ($ignoreFolder in $ignoreFolders) {
+        foreach ($ignoreFolder in $IgnoreFolders) {
             if ($_.FullName -like "*$ignoreFolder*") {
                 $ignore = $true
                 break
             }
         }
         -not $ignore
+    } | Sort-Object -Property Name
+
+    # Process each child directory recursively
+    foreach ($dir in $directories) {
+        $relativePath = $dir.FullName -replace [regex]::Escape($BaseDir), ""
+        $result += Get-FilesAndFolders -CurrentDir $dir.FullName -IgnoreFolders $IgnoreFolders -IncludeExtensions $IncludeExtensions
     }
-    $fileList += $files
+
+    return $result
 }
 
-# Initialize a string to store the content
-$outputContent = ""
+# Generate the file list
+$fileList = Get-FilesAndFolders -CurrentDir $BaseDir -IgnoreFolders $ignoreFolders -IncludeExtensions $includeExtensions
 
-# Loop through each file and extract the relative path
-foreach ($file in $fileList) {
-    $relativePath = $file.FullName -replace [regex]::Escape($BaseDir), ""
-    $outputContent += "$relativePath`r`n"
-}
-
-# Save the content to the text file
-$outputContent | Out-File -FilePath $outputTextFile -Encoding utf8
+# Save the list to the output file
+$fileList -join "`r`n" | Out-File -FilePath $outputTextFile -Encoding utf8
 
 Write-Host "Text file created: $outputTextFile"
