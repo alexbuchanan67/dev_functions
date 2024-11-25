@@ -1,31 +1,34 @@
-# Set the base folder path to the parent folder of the current script
-$baseFolderPath = (Get-Item -Path $PSScriptRoot).Parent.FullName
-
-# Set the output text file path in the same folder as the current script
-$outputTextFile = Join-Path -Path $PSScriptRoot -ChildPath "filenames.txt"
-
-# Define an array of folder paths to ignore
-$ignoreFolders = @(
-    "venv"
+param (
+    [string]$BaseDir = "$PSScriptRoot",
+    [string]$ConfigPath = "$BaseDir\.vscode\gen_dir_txt_config.json"
 )
 
-# Define an array of file extensions to include
-$includeExtensions = @(
-    "*.js",
-    "*.json",
-    "*.css",
-    "*.py",
-    "*.yml",
-    "*.conf"
+# Validate the BaseDir parameter
+if (-not (Test-Path -Path $BaseDir)) {
+    Write-Host "Base directory does not exist: $BaseDir"
+    exit 1
+}
 
-)
+# Validate the ConfigPath parameter
+if (-not (Test-Path -Path $ConfigPath)) {
+    Write-Host "Configuration file not found: $ConfigPath"
+    exit 1
+}
+
+# Load the configuration
+$config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
+$ignoreFolders = $config.excludeFolders
+$includeExtensions = $config.includeExtensions
+
+# Set the output text file path in the specified base directory
+$outputTextFile = Join-Path -Path (Join-Path -Path $BaseDir -ChildPath ".vscode") -ChildPath "filenames.txt"
 
 # Initialize a list to store the files
 $fileList = @()
 
 # Get files for each extension and add to the list
 foreach ($extension in $includeExtensions) {
-    $files = Get-ChildItem -Path $baseFolderPath -Recurse -File -Filter $extension | Where-Object {
+    $files = Get-ChildItem -Path $BaseDir -Recurse -File -Filter $extension | Where-Object {
         $ignore = $false
         foreach ($ignoreFolder in $ignoreFolders) {
             if ($_.FullName -like "*$ignoreFolder*") {
@@ -43,7 +46,7 @@ $outputContent = ""
 
 # Loop through each file and extract the relative path
 foreach ($file in $fileList) {
-    $relativePath = $file.FullName -replace [regex]::Escape($baseFolderPath), ""
+    $relativePath = $file.FullName -replace [regex]::Escape($BaseDir), ""
     $outputContent += "$relativePath`r`n"
 }
 
