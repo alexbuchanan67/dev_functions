@@ -1,3 +1,34 @@
+# SAMPLE gen_dir_txt_config.json (save in .vscode folder in your project)
+# {
+#     "excludeFolders": [".vscode"],
+#     "includeExtensions": ["*.js", "*.json", "*.css", "*.py", "*.yml", "*.conf", "*.ps1", "*.sh"]
+# }
+  
+
+# SAMPLE TASK.JSON (save in .vscode folder in your project)
+# {
+#     "version": "2.0.0",
+#     "tasks": [
+#         {
+#             "label": "Generate Directory Structure",
+#             "type": "shell",
+#             "command": "powershell",
+#             "args": [
+#                 "-ExecutionPolicy",
+#                 "Bypass",
+#                 "-File",
+#                 "C:/Users/alexb/Documents/GitRepos/dev_functions/gen_dir_txt.ps1",
+#                 "-ConfigPath",
+#                 "${workspaceFolder}/.vscode/gen_dir_txt_config.json",
+#                 "-BaseDir",
+#                 "${workspaceFolder}"
+#             ],
+#             "problemMatcher": []
+#         }
+#     ]
+# }
+
+
 param (
     [string]$BaseDir = "$PSScriptRoot",
     [string]$ConfigPath = "$BaseDir\.vscode\gen_dir_txt_config.json"
